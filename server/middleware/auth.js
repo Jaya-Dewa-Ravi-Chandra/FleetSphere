@@ -1,0 +1,5 @@
+import jwt from 'jsonwebtoken';
+import { User } from '../models/index.js';
+export async function authenticate(req,res,next){try{const token=req.cookies?.accessToken||req.headers.authorization?.replace('Bearer ','');if(!token)return res.status(401).json({success:false,message:'Authentication required'});const p=jwt.verify(token,process.env.JWT_SECRET);const user=await User.findById(p.id).select('-password');if(!user||!user.active)return res.status(401).json({success:false,message:'Invalid session'});req.user=user;next()}catch(e){return res.status(401).json({success:false,message:'Invalid or expired token'})}}
+export const authorize=(...roles)=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({success:false,message:"You don't have permission to perform this action."});
+export function scope(query,req){if(req.user.role!=='super_admin'&&req.user.organizationId)query.organizationId=req.user.organizationId;if(req.user.role!=='super_admin'&&req.user.branchId)query.branchId=req.user.branchId;return query}

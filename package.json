@@ -1,0 +1,1 @@
+{"name":"fleetsphere","private":true,"scripts":{"dev":"concurrently \"npm run server\" \"npm run client\"","server":"npm --prefix server run dev","client":"npm --prefix client run dev","seed":"npm --prefix server run seed","seed:reset":"npm --prefix server run seed:reset","test":"npm --prefix server test"},"devDependencies":{"concurrently":"^9.1.2"}}
