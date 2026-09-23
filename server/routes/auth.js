@@ -1,6 +1,107 @@
-import { Router } from 'express'; import bcrypt from 'bcryptjs'; import jwt from 'jsonwebtoken'; import { User, Organization, Branch } from '../models/index.js'; import { created, ok, fail } from '../utils/response.js'; import { asyncHandler } from '../utils/async.js'; import { authenticate } from '../middleware/auth.js';
-const r=Router(); const sign=id=>jwt.sign({id},process.env.JWT_SECRET,{expiresIn:'8h'});
-r.post('/login',asyncHandler(async(req,res)=>{const {email,password}=req.body;const u=await User.findOne({email:String(email||'').toLowerCase()}).select('+password');if(!u||!(await bcrypt.compare(password||'',u.password)))return fail(res,'Invalid email or password',401);res.cookie('accessToken',sign(u._id),{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',maxAge:8*3600000});ok(res,{user:await User.findById(u._id).select('-password')},'Login successful')}));
-r.post('/register',asyncHandler(async(req,res)=>{const {name,email,phone,password,role,organizationId,branchId}=req.body;if(!name||!email||!password)return fail(res,'Name, email and password are required');if(role==='super_admin')return fail(res,'Super Admin accounts cannot be self-created',403);if(!organizationId)return fail(res,'Organization is required');const org=await Organization.findById(organizationId);if(!org)return fail(res,'Organization not found');if(branchId){const b=await Branch.findOne({_id:branchId,organizationId});if(!b)return fail(res,'Branch does not belong to organization');}const hash=await bcrypt.hash(password,12);const u=await User.create({name,email:String(email).toLowerCase(),phone,password:hash,role,organizationId,branchId});created(res,{user:{id:u._id,name:u.name,email:u.email,role:u.role}},'Account created')}));
-r.get('/options',asyncHandler(async(req,res)=>{const [organizations,branches]=await Promise.all([Organization.find({active:true}).select('name code'),Branch.find({status:'Active'}).select('name code organizationId')]);ok(res,{organizations,branches})}));
-r.get('/me',authenticate,asyncHandler(async(req,res)=>ok(res,{user:req.user})));r.post('/logout',(req,res)=>{res.clearCookie('accessToken');ok(res,null,'Logged out')});export default r;
+import {
+    Router
+} from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import {
+    User,
+    Organization,
+    Branch
+} from '../models/index.js';
+import {
+    created,
+    ok,
+    fail
+} from '../utils/response.js';
+import {
+    asyncHandler
+} from '../utils/async.js';
+import {
+    authenticate
+} from '../middleware/auth.js';
+const r = Router();
+const sign = id => jwt.sign({
+    id
+}, process.env.JWT_SECRET, {
+    expiresIn: '8h'
+});
+r.post('/login', asyncHandler(async (req, res) => {
+    const {
+        email,
+        password
+    } = req.body;
+    const u = await User.findOne({
+        email: String(email || '').toLowerCase()
+    }).select('+password');
+    if (!u || !(await bcrypt.compare(password || '', u.password))) return fail(res, 'Invalid email or password', 401);
+    res.cookie('accessToken', sign(u._id), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 8 * 3600000,
+    path: '/'
+});
+    ok(res, {
+        user: await User.findById(u._id).select('-password')
+    }, 'Login successful')
+}));
+r.post('/register', asyncHandler(async (req, res) => {
+    const {
+        name,
+        email,
+        phone,
+        password,
+        role,
+        organizationId,
+        branchId
+    } = req.body;
+    if (!name || !email || !password) return fail(res, 'Name, email and password are required');
+    if (role === 'super_admin') return fail(res, 'Super Admin accounts cannot be self-created', 403);
+    if (!organizationId) return fail(res, 'Organization is required');
+    const org = await Organization.findById(organizationId);
+    if (!org) return fail(res, 'Organization not found');
+    if (branchId) {
+        const b = await Branch.findOne({
+            _id: branchId,
+            organizationId
+        });
+        if (!b) return fail(res, 'Branch does not belong to organization');
+    }
+    const hash = await bcrypt.hash(password, 12);
+    const u = await User.create({
+        name,
+        email: String(email).toLowerCase(),
+        phone,
+        password: hash,
+        role,
+        organizationId,
+        branchId
+    });
+    created(res, {
+        user: {
+            id: u._id,
+            name: u.name,
+            email: u.email,
+            role: u.role
+        }
+    }, 'Account created')
+}));
+r.get('/options', asyncHandler(async (req, res) => {
+    const [organizations, branches] = await Promise.all([Organization.find({
+        active: true
+    }).select('name code'), Branch.find({
+        status: 'Active'
+    }).select('name code organizationId')]);
+    ok(res, {
+        organizations,
+        branches
+    })
+}));
+r.get('/me', authenticate, asyncHandler(async (req, res) => ok(res, {
+    user: req.user
+})));
+r.post('/logout', (req, res) => {
+    res.clearCookie('accessToken');
+    ok(res, null, 'Logged out')
+});
+export default r;
